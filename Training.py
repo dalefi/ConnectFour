@@ -2,7 +2,8 @@
 Script to train a model for ConnectFour. The training data, i.e. the played games need to be generated first.
 """
 
-import numy as np
+import numpy as np
+import torch
 
 def Training(model=None, games=None, training_iterations=None):
     """

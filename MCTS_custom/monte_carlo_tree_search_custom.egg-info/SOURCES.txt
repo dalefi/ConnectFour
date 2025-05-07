@@ -9,7 +9,7 @@ mcts_custom/example/__init__.py
 mcts_custom/example/connectmnk.py
 mcts_custom/example/naughtsandcrosses.py
 mcts_custom/searcher/__init__.py
-mcts_custom/searcher/mcts.py
+mcts_custom/searcher/mcts_custom.py
 monte_carlo_tree_search_custom.egg-info/PKG-INFO
 monte_carlo_tree_search_custom.egg-info/SOURCES.txt
 monte_carlo_tree_search_custom.egg-info/dependency_links.txt
