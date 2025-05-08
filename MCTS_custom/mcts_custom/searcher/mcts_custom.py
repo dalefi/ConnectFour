@@ -9,39 +9,6 @@ import torch
 from mcts.base.base import BaseState
 from CFNet import CFNet
 
-
-def random_policy(state: BaseState) -> float:
-    while not state.is_terminal():
-        try:
-            action = np.random.choice(state.get_possible_actions())
-        except IndexError:
-            raise Exception("Non-terminal state has no possible actions: " + str(state))
-        state = state.take_action(action)
-    return state.get_reward()
-
-def neural_network_policy(state: BaseState, neural_net = None) -> float:
-    """
-    Instead of randomly choosing the next action, we rather take the output of a neural network
-    as a probability distribution and sample from that distribution.
-    """
-
-    """
-    # get a prediction of the next best move given a state
-    move_probabilities = neural_net(state)['policy'].detach().numpy()[0]
-    try:
-        action = np.random.choice(state.get_possible_actions(), p=move_probabilities)
-    except IndexError:
-        raise Exception("Non-terminal state has no possible actions: " + str(state))
-    state = state.take_action(action)
-    """
-    # Ich glaube ich brauche nur die Evaluierung des Modells für die aktuelle Position
-    
-    # now we calculate the value that the network gives us for the new position and return it
-    evaluation = neural_net(state)['value'].item()
-    
-    return evaluation
-
-
 class TreeNode:
     def __init__(self, state, parent, prior=0, policy=None, value=0):
         self.state = state
