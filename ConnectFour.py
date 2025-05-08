@@ -89,16 +89,20 @@ class ConnectFour(BaseState):
         return 0
 
     def diagonal_check(self):
-        """
-        Checks if the last move leads to a diagonal win.
-        """
+        rows, cols = self.board.shape
 
-        # from left-up to right-down
-        for row_idx in range(self.board.shape[0]-3):
-            for col_idx in range(self.board.shape[1]-3):
-                offset = col_idx - row_idx
-                if self.board.diagonal(offset=offset)[:4].sum() == self.currentPlayer*4:
-                    return (-1)*self.currentPlayer
+        # Check \ direction
+        for r in range(rows - 3):
+            for c in range(cols - 3):
+                if all(self.board[r + i][c + i] == self.currentPlayer for i in range(4)):
+                    return -self.currentPlayer
+
+        # Check / direction
+        for r in range(3, rows):
+            for c in range(cols - 3):
+                if all(self.board[r - i][c + i] == self.currentPlayer for i in range(4)):
+                    return -self.currentPlayer
+
         return 0
 
     def board_is_full(self):
