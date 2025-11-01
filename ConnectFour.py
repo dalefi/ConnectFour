@@ -10,15 +10,19 @@ class ConnectFour(BaseState):
     has their number.
     """
     
-    def __init__(self, board=None, currentPlayer=None, last_move=None):
+    def __init__(self, board=None, currentPlayer=1, last_move=(0,0)):
         """
         board: np.array of shape (6,7) with 0 for empty, 1 for Player 1's coin and -1 accordingly
         currentPlayer: +-1 for the current player
         last_move: tuple (x,y) for position of last played coin
         """
-        self.board = np.zeros(shape=(6,7),dtype=int) # board is empty in the beginning
-        self.currentPlayer = 1 # player 1 starts
-        self.last_move = (0,0) # easier to check for a winner this way
+
+        if board is None:
+            board = np.zeros((6, 7), dtype=int)
+
+        self.board = board
+        self.currentPlayer = currentPlayer # player 1 starts
+        self.last_move = last_move # easier to check for a winner this way
 
     def __str__(self):
         return str((self.board, f"Turn: Player {self.currentPlayer}"))
@@ -33,14 +37,15 @@ class ConnectFour(BaseState):
         return possibleActions
 
     def get_reward(self):
+        # i want to always return -1 to the player who's turn it would be now -> they lost after all!
         if self.vertical_check() != 0:
-            reward = self.vertical_check()
+            reward = -1
 
         elif self.horizontal_check() != 0:
-            reward = self.horizontal_check()
+            reward = -1
 
         elif self.diagonal_check() != 0:
-            reward = self.diagonal_check()
+            reward = -1
 
         elif self.board_is_full():
             reward = 0
@@ -67,41 +72,45 @@ class ConnectFour(BaseState):
 
     def vertical_check(self):
         """
-        Checks if the last move leads to a vertical win.
+        Checks if there is a vertical win for any player.
         """
-
         for col_idx in range(self.board.shape[1]):
-            for row_idx in range(self.board.shape[0]-2):
-                if self.board[row_idx:row_idx+4,col_idx].sum() == self.currentPlayer*4:
-                    return (-1)*self.currentPlayer
-
+            for row_idx in range(self.board.shape[0] - 3):
+                window = self.board[row_idx:row_idx + 4, col_idx]
+                if np.all(window == window[0]) and window[0] != 0:
+                    return window[0]  # Returns 1 or -1 depending on the winning player
         return 0
 
     def horizontal_check(self):
         """
-        Checks if the last move leads to a horizontal win.
+        Checks if there is a horizontal win for any player.
         """
-
         for row_idx in range(self.board.shape[0]):
-            for col_idx in range(self.board.shape[1]-2):
-                if self.board[row_idx,col_idx:col_idx+4].sum() == self.currentPlayer*4:
-                    return (-1)*self.currentPlayer
+            for col_idx in range(self.board.shape[1] - 3):
+                window = self.board[row_idx, col_idx:col_idx + 4]
+                if np.all(window == window[0]) and window[0] != 0:
+                    return window[0]
         return 0
 
     def diagonal_check(self):
+        """
+        Checks if there is a diagonal win (both directions) for any player.
+        """
         rows, cols = self.board.shape
 
         # Check \ direction
         for r in range(rows - 3):
             for c in range(cols - 3):
-                if all(self.board[r + i][c + i] == self.currentPlayer for i in range(4)):
-                    return -self.currentPlayer
+                window = [self.board[r + i][c + i] for i in range(4)]
+                if window[0] != 0 and all(cell == window[0] for cell in window):
+                    return window[0]
 
         # Check / direction
         for r in range(3, rows):
             for c in range(cols - 3):
-                if all(self.board[r - i][c + i] == self.currentPlayer for i in range(4)):
-                    return -self.currentPlayer
+                window = [self.board[r - i][c + i] for i in range(4)]
+                if window[0] != 0 and all(cell == window[0] for cell in window):
+                    return window[0]
 
         return 0
 
@@ -122,6 +131,20 @@ class ConnectFour(BaseState):
 
         else:
             return False
+
+    def get_winner(self):
+        """
+        Returns the winner of the game if there is one.
+        Returns:
+            1 if player 1 wins
+           -1 if player -1 wins
+            0 if there is no winner
+        """
+        for check in [self.vertical_check, self.horizontal_check, self.diagonal_check]:
+            winner = check()
+            if winner != 0:
+                return winner
+        return 0
     
     def make_move(self, target_column=None, currentPlayer=None):
         """

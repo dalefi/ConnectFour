@@ -60,10 +60,6 @@ class CFNet(torch.nn.Module):
             *[ResnetBlock(num_channels, num_channels) for _ in range(5)]
         )
 
-        """
-        Das muss ich noch ausarbeiten!
-        """
-        
         self.dropout_blocks = torch.nn.Sequential(
             DropoutBlock(num_channels * 6 * 7, H[0]),
             DropoutBlock(H[0], H[1])
@@ -82,10 +78,6 @@ class CFNet(torch.nn.Module):
             torch.nn.Linear(H[1], 1),
             torch.nn.Tanh()
         )
-
-        """
-        Hier auch jeweils args.N und .M austauschen ... muss mir Gedanken machen.
-        """
         
         self.policy_head = torch.nn.Sequential(
             torch.nn.Linear(H[1], H[1]),
@@ -97,20 +89,30 @@ class CFNet(torch.nn.Module):
     """
     Defines the loss
     """
-    
-    def alphaloss(self, y, mcts_val, mcts_policy):
-        loss1 = torch.nn.MSELoss()(
-            y['value'].reshape(-1),
-            mcts_val
-            )
-        loss2 = torch.nn.CrossEntropyLoss()(
-            y['policy'].reshape(-1,7),
-            mcts_policy.reshape(-1,7)
-            )
-        loss = loss1 + loss2
-        
-        return loss
 
+    def alphaloss(self, nn_value, nn_policy, result, mcts_policy, weight_decay=1e-4):
+        # Value loss (MSE)
+        loss1 = torch.nn.MSELoss()(
+            nn_value.reshape(-1),
+            result.reshape(-1)
+        )
+
+        # Policy loss (Cross-Entropy)
+        loss2 = torch.nn.CrossEntropyLoss()(
+            nn_policy.reshape(-1, 7),
+            mcts_policy.reshape(-1, 7)
+        )
+
+        # L2 Regularization (weight decay)
+        l2_reg = 0.0
+        for param in self.model.parameters():
+            l2_reg += torch.norm(param, p=2) ** 2
+        reg_term = weight_decay * l2_reg
+
+        # Total loss
+        loss = loss1 + loss2 + reg_term
+
+        return loss
     
     def forward(self, X):
         """

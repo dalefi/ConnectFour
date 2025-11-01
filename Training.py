@@ -1,33 +1,35 @@
-"""
-Script to train a model for ConnectFour. The training data, i.e. the played games need to be generated first.
-"""
+from tqdm.notebook import tqdm
+import selfplay
+from generate_training_data import generate_dataset
+from update_model import update_model
+from CFNet import CFNet
+import utils
 
-import numpy as np
-import torch
-
-def Training(model=None, games=None, training_iterations=None):
+def Training(num_iterations=100, target_dataset_size=1000, iteration_limit=250, num_training_epochs=10, num_validation_games=20):
     """
-    games is a nested list of games as returned by Selfplay.
+    This script wraps the whole training process:
+
+    1. Initialize a model.
+    2. Generate training data.
+    3. Update the model.
+    4. Validate if the model performs better than the old model.
+    5. If yes replace current model, if no discard it.
+
     """
 
-    model.train()
-    optimizer = torch.optim.SGD(
-    model.parameters(), lr = 0.02, momentum=0.9, weight_decay=1e-5
-    )
+    print()
+    current_model = CFNet()
 
-    # unpack training data
-    train_data = []
-    mcts_policies = []
-    labels = []
-    
-    for i in range(len(games)):
-        for j in range(3):
-            train_data.append(CFNet.state_to_tensor(games[i][j][0]))
-            mcts_policies.append(TestGame[i][j][1])
-            labels.append(TestGame[i][j][2])
-    
-    training_iterations = len(train_data) if training_iterations is None
+    for iteration in tqdm(range(num_iterations), desc="Training Iterations"):
+        training_data = generate_dataset(target_dataset_size=target_dataset_size, iteration_limit=iteration_limit, model=current_model)
+        utils.save_data(training_data, f"training_data_at_{iteration}")
+        updated_model = update_model(current_model, training_data, num_epochs=num_training_epochs)
+        win_rate, draw_rate, loss_rate = selfplay.selfplay(current_model, updated_model, num_games=num_validation_games)
 
-    # sample game
-    train_idx = np.random.randint(0,len(train_data))
-    value, policy = model(train_data[train_idx])
+        if win_rate > 0.5:
+            current_model = updated_model
+            utils.save_model(current_model, f"accepted_at_{iteration}")
+        else:
+            utils.save_model(updated_model, f"rejected_at_{iteration}")
+
+    return current_model
