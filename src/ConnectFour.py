@@ -1,7 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from copy import deepcopy
 from mcts.base.base import BaseState, BaseAction
+from src.utils import timing
+
 
 class ConnectFour(BaseState):
     """
@@ -18,7 +21,8 @@ class ConnectFour(BaseState):
         """
 
         if board is None:
-            board = np.zeros((6, 7), dtype=int)
+            board = np.zeros((6, 7), dtype=np.int8)
+            # board = np.zeros((6, 7), dtype=int)
 
         self.board = board
         self.currentPlayer = currentPlayer # player 1 starts
@@ -60,7 +64,12 @@ class ConnectFour(BaseState):
         return self.game_over()
 
     def take_action(self, action):
-        newState = deepcopy(self)
+        # Manuelle Kopie statt deepcopy
+        newState = ConnectFour(
+            board=self.board.copy(),
+            currentPlayer=self.currentPlayer,
+            last_move=self.last_move
+        )
         newState.make_move(action.target_column, action.player)
         return newState
 
@@ -163,6 +172,10 @@ class ConnectFour(BaseState):
 
         # check if column is already full
         if self.board[0, target_column] != 0:
+            print(f"Board: {self.board}")
+            print(f"Move: {target_column}")
+            print(f"Current Player: {currentPlayer}")
+            print(f"Possible Actions: {self.get_possible_actions()}")
             raise ValueError("This column is full!")
             return played_move
 
@@ -191,17 +204,16 @@ class ConnectFour(BaseState):
 
     def display_board(self):
         """
-        A matplotlib function to display a board in a nice way.
+        Displays the Connect Four board with colored discs and a legend.
         """
-        
         board = self.board
         rows, cols = board.shape
-    
+
         cell_size = 0.6
-        fig, ax = plt.subplots(figsize=(cols * cell_size, rows * cell_size))
+        fig, ax = plt.subplots(figsize=(cols * cell_size, rows * cell_size + 0.5))  # etwas höher für Legende
         ax.set_aspect('equal')
         ax.set_facecolor('blue')
-    
+
         for r in range(rows):
             for c in range(cols):
                 value = board[r, c]
@@ -211,19 +223,63 @@ class ConnectFour(BaseState):
                     color = 'yellow'
                 else:
                     color = 'white'
-                # Row inversion only here to make bottom of array = bottom of board
                 circle = plt.Circle((c + 0.5, r + 0.5), 0.25, color=color, ec='black')
                 ax.add_patch(circle)
-    
+
         ax.set_xlim(0, cols)
         ax.set_ylim(0, rows)
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.invert_yaxis()  # Flip Y so that row 0 is at the bottom visually
+        ax.invert_yaxis()
         plt.grid(False)
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0.05, 1, 1])  # Platz für Legende lassen
+
+        # 🔹 Legende hinzufügen
+        red_patch = mpatches.Patch(color='red', label='Player -1 (Red)')
+        yellow_patch = mpatches.Patch(color='yellow', label='Player 1 (Yellow)')
+        ax.legend(
+            handles=[red_patch, yellow_patch],
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.05),
+            ncol=2,
+            frameon=False
+        )
+
         plt.show()
 
+    @staticmethod
+    def random_start_state(max_random_moves=6, max_retries=100):
+        """
+        Creates a random non-terminal Connect Four start state.
+        If a terminal state is reached during random play, the process restarts.
+        """
+
+        for _ in range(max_retries):
+            state = ConnectFour()
+            num_moves = np.random.randint(0, max_random_moves + 1)
+
+            valid = True
+
+            for _ in range(num_moves):
+                if state.is_terminal():
+                    valid = False
+                    break
+
+                possible_actions = state.get_possible_actions()
+                if not possible_actions:
+                    valid = False
+                    break
+
+                action = np.random.choice(possible_actions)
+                state = state.take_action(action)
+
+            if valid and not state.is_terminal():
+                return state
+
+        raise RuntimeError(
+            "Failed to generate a non-terminal random start state. "
+            "Try lowering max_random_moves."
+        )
 
 
 class Action(BaseAction):
@@ -242,12 +298,6 @@ class Action(BaseAction):
 
     def __hash__(self):
         return hash((self.target_column, self.player))
-
-
-class ConnectFourGame():
-    """
-    A class to record a game of Connect Four. All the moves, policies, values and the outcome are stored here.
-    """
 
 
 

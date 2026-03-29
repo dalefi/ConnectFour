@@ -1,5 +1,6 @@
 import torch
-from ConnectFour import ConnectFour
+from src.ConnectFour import ConnectFour
+
 
 class SmallBlock(torch.nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -25,6 +26,7 @@ class ResnetBlock(torch.nn.Module):
         Y = self.model(X)
         Y = Y+X
         Y = torch.nn.ReLU()(Y)
+
         return Y
 
 
@@ -82,14 +84,13 @@ class CFNet(torch.nn.Module):
         self.policy_head = torch.nn.Sequential(
             torch.nn.Linear(H[1], H[1]),
             torch.nn.ReLU(),
-            torch.nn.Linear(H[1], 7), # 7 mögliche Züge
-            torch.nn.Softmax(dim =-1)
+            torch.nn.Linear(H[1], 7),
+            # torch.nn.Softmax(dim =-1)
         )
 
     """
     Defines the loss
     """
-
     def alphaloss(self, nn_value, nn_policy, result, mcts_policy, weight_decay=1e-4):
         # Value loss (MSE)
         loss1 = torch.nn.MSELoss()(
@@ -103,17 +104,17 @@ class CFNet(torch.nn.Module):
             mcts_policy.reshape(-1, 7)
         )
 
-        # L2 Regularization (weight decay)
-        l2_reg = 0.0
-        for param in self.model.parameters():
-            l2_reg += torch.norm(param, p=2) ** 2
-        reg_term = weight_decay * l2_reg
+        # # L2 Regularization (weight decay)
+        # l2_reg = 0.0
+        # for param in self.model.parameters():
+        #     l2_reg += torch.norm(param, p=2) ** 2
+        # reg_term = weight_decay * l2_reg
 
         # Total loss
-        loss = loss1 + loss2 + reg_term
+        loss = loss1 + loss2    # + reg_term
 
         return loss
-    
+
     def forward(self, X):
         """
         Falls ich dem Modell eine ConnectFour-Instanz übergebe, soll es das hier so
@@ -133,15 +134,19 @@ class CFNet(torch.nn.Module):
         return {'value': v, 'policy': p}
 
 
-def state_to_tensor(state = None) -> torch.Tensor:
-    """
-    Transforms boardstate into a tensor that can be feed into the NN.
-    """
+def state_to_tensor(state=None) -> torch.Tensor:
+    # Sicherstellen, dass wir ein Objekt mit einem .board Attribut haben
+    if state is None or not hasattr(state, 'board'):
+        raise TypeError(f"Expected ConnectFour-like object, got {type(state)}")
 
-    assert isinstance(state, ConnectFour)
-    player_tensor = torch.ones(6, 7, dtype=int)
-    input_tensor = torch.stack((torch.Tensor(state.board), state.get_current_player() * player_tensor))
+    player_tensor = torch.ones(6, 7, dtype=torch.float32)
+    # Nutze torch.tensor() statt torch.Tensor() (letzteres ist ein Alias für FloatTensor)
+    board_tensor = torch.tensor(state.board, dtype=torch.float32)
 
+    input_tensor = torch.stack((
+        board_tensor,
+        state.get_current_player() * player_tensor
+    ))
     return input_tensor
 
 def tensor_to_state(tensor = None):
@@ -157,23 +162,13 @@ def tensor_to_state(tensor = None):
     return CF
 
 
+def load_model(model_path=None, model_tag=None):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = CFNet()
+    if model_path:
+        model.load_state_dict(torch.load(model_path, weights_only=True))
+    model.to(device)
+    model.eval()
+    model.tag = model_tag
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return model
