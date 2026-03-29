@@ -129,7 +129,7 @@ if __name__ == "__main__":
 
     generating_model_path = os.path.join(
         model_output_dir,
-        "cfnet_20260215_020909.pt"
+        "cfnet_20260215_224459.pt"
     )
 
     final_model = train_model(num_iterations=10,
