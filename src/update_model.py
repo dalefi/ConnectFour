@@ -15,7 +15,8 @@ from src.utils import timing, get_filename
 @timing
 def update_model(input_model_path=None,
                  train_data=None,
-                 num_epochs=20):
+                 num_epochs=4,
+                 batch_size=256):
 
     model_name = get_filename(input_model_path)
     input_model = load_model(input_model_path,model_tag=model_name)
@@ -38,20 +39,22 @@ def update_model(input_model_path=None,
         optimizer,
         mode='min',
         factor=0.5,
-        patience=5,
+        patience=1,
     )
 
-    epoch_losses = []
+    # DataLoader einmal bauen, nicht pro Epoche neu.
+    dataloader = DataLoader(
+        train_data,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=True,
+        pin_memory=(device.type == "cuda")
+    )
+
+    history = {"total": [], "value": [], "policy": [], "kl": []}
 
     for epoch in range(num_epochs):
-        dataloader = DataLoader(
-            train_data,
-            batch_size=64,
-            shuffle=True,
-            drop_last=True,
-            pin_memory=True
-        )
-        running_loss = 0.0
+        running = {"total": 0.0, "value": 0.0, "policy": 0.0, "kl": 0.0}
 
         for batch in dataloader:
             optimizer.zero_grad()
@@ -66,7 +69,7 @@ def update_model(input_model_path=None,
             nn_policy = out['policy']
 
             # calculate loss
-            loss = input_model.alphaloss(
+            loss, value_loss, policy_loss = input_model.alphaloss(
                 nn_value,
                 nn_policy,
                 value_targets,
@@ -77,15 +80,29 @@ def update_model(input_model_path=None,
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
+            with torch.no_grad():
+                kl = input_model.policy_kl(nn_policy, policy_targets)
 
-        avg_loss = running_loss / len(dataloader)
-        epoch_losses.append(avg_loss)
+            running["total"] += loss.item()
+            running["value"] += value_loss.item()
+            running["policy"] += policy_loss.item()
+            running["kl"] += kl.item()
 
-        scheduler.step(avg_loss)
+        num_batches = len(dataloader)
+        for key in running:
+            history[key].append(running[key] / num_batches)
 
-        if (epoch + 1) % 5 == 0 or epoch == 0:
-            print(f"Epoch {epoch + 1}/{num_epochs} - avg loss: {avg_loss:.6f}")
+        scheduler.step(history["total"][-1])
+
+        # Der Policy-Anteil enthaelt die Entropie des MCTS-Ziels als festen Sockel.
+        # Aussagekraeftig ist die KL - sie kann tatsaechlich gegen 0 gehen.
+        print(
+            f"Epoch {epoch + 1}/{num_epochs} - "
+            f"total {history['total'][-1]:.4f} | "
+            f"value {history['value'][-1]:.4f} | "
+            f"policy {history['policy'][-1]:.4f} | "
+            f"policy-KL {history['kl'][-1]:.4f}"
+        )
 
     print("MODEL UPDATED!")
 
@@ -111,8 +128,11 @@ def update_model(input_model_path=None,
     print(f"Model saved to {model_path}")
 
     # --- Plot Loss ---
+    epochs = range(1, num_epochs + 1)
     plt.figure(figsize=(8, 5))
-    plt.plot(range(1, num_epochs + 1), epoch_losses, label="Training Loss")
+    plt.plot(epochs, history["total"], label="Total")
+    plt.plot(epochs, history["value"], label="Value (MSE)")
+    plt.plot(epochs, history["kl"], label="Policy KL")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title("Training Loss over Epochs")

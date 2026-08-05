@@ -4,12 +4,27 @@ import os
 
 import torch
 
+from src.benchmark_vs_minimax import run_benchmark
 from src.CFNet import load_model
 from src.database.db_handler import DatabaseHandler
-from generate_training_data import MoveDataset, process_entry_generate_dataset
+from src.generate_training_data import MoveDataset, process_entry_generate_dataset
 from src.selfplay_parallel import selfplay_parallel, process_entry_selfplay
-from src.utils import timing, get_filename, calculate_percentages
-from update_model import update_model
+from src.utils import timing, get_filename, gating_win_rate, enable_utf8_console
+from src.update_model import update_model
+
+
+def run_in_processes(target, args_per_process):
+    """Startet je einen Prozess pro Argument-Tupel und wartet auf alle."""
+    mp.set_start_method("spawn", force=True)
+
+    processes = []
+    for args in args_per_process:
+        process = mp.Process(target=target, args=args)
+        process.start()
+        processes.append(process)
+
+    for process in processes:
+        process.join()
 
 
 @timing
@@ -17,14 +32,26 @@ def train_model(
     num_iterations=10,
     dataset_generation_time=1.0,
     mcts_iteration_limit=400,
-    num_training_epochs=20,
+    num_training_epochs=4,
     num_validation_games=200,
-    generating_model_path=None
+    generating_model_path=None,
+    num_worker_processes=8,
+    games_per_worker=32,
+    nn_batch_size=32,
+    anchor_depths=(2, 4),
+    anchor_pairs=10,
 ):
     """
     AlphaZero-Training mit optionalem Start von einem vortrainierten Modell.
+
+    num_worker_processes / games_per_worker / nn_batch_size steuern den Durchsatz:
+    Jeder Prozess faehrt `games_per_worker` Partien nebenlaeufig und buendelt die
+    Netzauswertungen zu Batches von `nn_batch_size`. Mehr gleichzeitige Partien pro
+    Prozess = vollere Batches = bessere GPU-Auslastung. Die Prozesse selbst braucht
+    es, weil die Baumsuche in Python laeuft und damit CPU-gebunden ist.
     """
 
+    enable_utf8_console()
     db = DatabaseHandler()
 
     for iteration in range(num_iterations):
@@ -33,29 +60,20 @@ def train_model(
 
         print(f"\n=== ITERATION {iteration} | aktuelles Modell: {model_name} ===")
 
-        mp.set_start_method("spawn", force=True)
-
-        num_instances = 8
-        processes = []
-
-        for i in range(num_instances):
-            p = mp.Process(
-                target=process_entry_generate_dataset,
-                args=(
+        run_in_processes(
+            process_entry_generate_dataset,
+            [
+                (
                     dataset_generation_time,
                     mcts_iteration_limit,
                     generating_model_path,
                     f"{model_name}_instance_{i}",
-                    16,
-                    16
+                    games_per_worker,
+                    nn_batch_size,
                 )
-            )
-            p.start()
-            processes.append(p)
-
-        for p in processes:
-            p.join()
-
+                for i in range(num_worker_processes)
+            ],
+        )
 
         buffer_size = 100000
         moves = db.load_moves_for_training(num_moves=buffer_size)
@@ -68,34 +86,31 @@ def train_model(
 
         updated_model = load_model(updated_model_path, get_filename(updated_model_path))
 
-        mp.set_start_method("spawn", force=True)
+        # Die Bewertungspartien werden auf die Prozesse *aufgeteilt*, nicht pro
+        # Prozess neu gespielt - sonst laufen num_validation_games * num_prozesse.
+        games_per_process = max(num_validation_games // num_worker_processes, 1)
 
-        num_instances = 8
-        processes = []
-
-        for i in range(num_instances):
-            p = mp.Process(
-                target=process_entry_selfplay,
-                args=(
+        run_in_processes(
+            process_entry_selfplay,
+            [
+                (
                     generating_model_path,
                     updated_model_path,
                     mcts_iteration_limit,
-                    num_validation_games,
+                    games_per_process,
                 )
-            )
-            p.start()
-            processes.append(p)
-
-        for p in processes:
-            p.join()
-
+                for _ in range(num_worker_processes)
+            ],
+        )
 
         selfplay_statistics = db.get_selfplay_statistics_from_database(challenger_model_tag=updated_model.tag)
-        percentages = calculate_percentages(selfplay_statistics)
 
-        print(f"The results are in. Challenger: {percentages['challenger']}, Champion: {percentages['champion']}, Draws: {percentages['draw']}")
+        print(f"The results are in. Challenger: {selfplay_statistics['challenger']}, "
+              f"Champion: {selfplay_statistics['champion']}, Draws: {selfplay_statistics['draw']}")
 
-        win_rate = percentages["challenger"]
+        # Nur entschiedene Partien zaehlen - Remis im Nenner macht die Huerde
+        # von der Remisquote abhaengig statt von der Spielstaerke.
+        win_rate = gating_win_rate(selfplay_statistics)
 
         print(f"Vergleich Version {generating_model.tag} vs Version {updated_model.tag}: {win_rate*100:.1f}% Winrate")
 
@@ -118,6 +133,19 @@ def train_model(
 
             generating_model_path = accepted_model_path
 
+        # --- Fester Massstab ---
+        # Champion-vs-Challenger ist ein relatives Mass und kann im Kreis laufen.
+        # Minimax mit fester Tiefe ist der einzige Anker, der ueber alle Iterationen
+        # hinweg vergleichbar bleibt.
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        asyncio.run(run_benchmark(
+            model_path=generating_model_path,
+            depths=list(anchor_depths),
+            num_pairs_per_depth=anchor_pairs,
+            iteration_limit=mcts_iteration_limit,
+            device=device,
+        ))
+
     return generating_model
 
 
@@ -135,7 +163,7 @@ if __name__ == "__main__":
     final_model = train_model(num_iterations=10,
                               dataset_generation_time=0.5,
                               mcts_iteration_limit=400,
-                              num_training_epochs=20,
-                              num_validation_games=50,
+                              num_training_epochs=4,
+                              num_validation_games=200,
                               generating_model_path=generating_model_path
                              )

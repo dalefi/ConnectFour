@@ -1,4 +1,6 @@
+import numpy as np
 import torch
+
 from src.ConnectFour import ConnectFour
 
 
@@ -31,7 +33,7 @@ class ResnetBlock(torch.nn.Module):
 
 
 class DropoutBlock(torch.nn.Module):
-    def __init__(self, in_units, out_units, dropout_rate = .5):
+    def __init__(self, in_units, out_units, dropout_rate = .0):
         super().__init__()
         self.dropout_rate = dropout_rate
         
@@ -46,9 +48,14 @@ class DropoutBlock(torch.nn.Module):
         return self.model(X)
 
 class CFNet(torch.nn.Module):
-    def __init__(self, H=[200,100], num_channels = 32, dropout_rate = .5):
+    def __init__(self, H=[200,100], num_channels = 32, dropout_rate = .0):
+        """
+        dropout_rate ist standardmaessig 0: AlphaZero regularisiert ueber den
+        staendig erneuerten Replay-Buffer, nicht ueber Dropout. Zwei gestapelte
+        Schichten mit p=0.5 haben vor allem den Value-Head gedaempft.
+        """
 
-        # input shape: batch_size x 7 x args.M x args.N
+        # input shape: batch_size x 2 x 6 x 7
 
         super().__init__()
         self.epoch = None
@@ -91,41 +98,50 @@ class CFNet(torch.nn.Module):
     """
     Defines the loss
     """
-    def alphaloss(self, nn_value, nn_policy, result, mcts_policy, weight_decay=1e-4):
+    def alphaloss(self, nn_value, nn_policy, result, mcts_policy):
+        """
+        Gibt (Gesamtloss, Value-Loss, Policy-Loss) zurueck.
+
+        Die Aufteilung ist wichtig fuer die Diagnose: der Cross-Entropy-Term
+        enthaelt die Entropie des MCTS-Ziels als nicht reduzierbaren Sockel
+        (bei Gleichverteilung ~1.95), der Gesamtwert sieht dadurch aus, als
+        wuerde das Training stagnieren. Fuer den echten Fortschritt siehe policy_kl.
+        """
         # Value loss (MSE)
-        loss1 = torch.nn.MSELoss()(
+        value_loss = torch.nn.MSELoss()(
             nn_value.reshape(-1),
             result.reshape(-1)
         )
 
         # Policy loss (Cross-Entropy)
-        loss2 = torch.nn.CrossEntropyLoss()(
+        policy_loss = torch.nn.CrossEntropyLoss()(
             nn_policy.reshape(-1, 7),
             mcts_policy.reshape(-1, 7)
         )
 
-        # # L2 Regularization (weight decay)
-        # l2_reg = 0.0
-        # for param in self.model.parameters():
-        #     l2_reg += torch.norm(param, p=2) ** 2
-        # reg_term = weight_decay * l2_reg
+        return value_loss + policy_loss, value_loss, policy_loss
 
-        # Total loss
-        loss = loss1 + loss2    # + reg_term
-
-        return loss
+    @staticmethod
+    def policy_kl(nn_policy, mcts_policy):
+        """
+        KL(MCTS || Netz): der Teil des Policy-Losses, der tatsaechlich auf 0
+        gedrueckt werden kann.
+        """
+        log_predicted = torch.nn.functional.log_softmax(nn_policy.reshape(-1, 7), dim=-1)
+        target = mcts_policy.reshape(-1, 7)
+        target_entropy = -(target * torch.log(target.clamp_min(1e-9))).sum(dim=-1)
+        cross_entropy = -(target * log_predicted).sum(dim=-1)
+        return (cross_entropy - target_entropy).mean()
 
     def forward(self, X):
         """
-        Falls ich dem Modell eine ConnectFour-Instanz übergebe, soll es das hier so
-        anpassen, dass es nutzbar ist. D.h. das board wird als erster Kanal verwendet,
-        und als zweiter Kanal wird ein 6x7 Tensor mit 1en bei Spieler 1's Zug uns
-        -1en bei Spieler -1's Zug benutzt.
+        Falls ich dem Modell eine ConnectFour-Instanz übergebe, wird sie hier in
+        die kanonische Zwei-Kanal-Darstellung uebersetzt (siehe encode_board).
         """
-        
+
         if isinstance(X, ConnectFour):
             X = state_to_tensor(X)
-            
+
         if X.dim() == 3:
             X = X.unsqueeze(0)
         Y = self.model(X)
@@ -134,32 +150,58 @@ class CFNet(torch.nn.Module):
         return {'value': v, 'policy': p}
 
 
+def encode_board(board, current_player) -> torch.Tensor:
+    """
+    Kanonische Eingabe fuer das Netz: zwei binaere Ebenen aus Sicht des Spielers
+    am Zug - eigene Steine, gegnerische Steine.
+
+    Dadurch ist eine Stellung und ihr farbvertauschtes Gegenstueck fuer das Netz
+    dieselbe Eingabe. Es muss die Vorzeichensymmetrie nicht mehr lernen, und
+    Value/Policy beziehen sich immer auf den Spieler am Zug - genau wie die
+    Trainingsziele.
+
+    Das ist die *einzige* Stelle, an der die Eingabe definiert wird. Suche und
+    Training muessen zwingend dieselbe Kodierung benutzen.
+    """
+    canonical = np.asarray(board, dtype=np.int8) * current_player
+    own_stones = torch.from_numpy((canonical == 1).astype(np.float32))
+    opponent_stones = torch.from_numpy((canonical == -1).astype(np.float32))
+    return torch.stack((own_stones, opponent_stones))
+
+
+def encode_boards(boards, current_players) -> torch.Tensor:
+    """
+    Vektorisierte Fassung von encode_board fuer einen ganzen Replay-Buffer.
+    Muss exakt dasselbe liefern wie encode_board - dafuer gibt es einen Test.
+    """
+    boards = np.asarray(boards, dtype=np.int8).reshape(-1, 6, 7)
+    players = np.asarray(current_players, dtype=np.int8).reshape(-1, 1, 1)
+
+    canonical = boards * players
+    own_stones = (canonical == 1).astype(np.float32)
+    opponent_stones = (canonical == -1).astype(np.float32)
+
+    return torch.from_numpy(np.stack((own_stones, opponent_stones), axis=1))
+
+
 def state_to_tensor(state=None) -> torch.Tensor:
     # Sicherstellen, dass wir ein Objekt mit einem .board Attribut haben
     if state is None or not hasattr(state, 'board'):
         raise TypeError(f"Expected ConnectFour-like object, got {type(state)}")
 
-    player_tensor = torch.ones(6, 7, dtype=torch.float32)
-    # Nutze torch.tensor() statt torch.Tensor() (letzteres ist ein Alias für FloatTensor)
-    board_tensor = torch.tensor(state.board, dtype=torch.float32)
+    return encode_board(state.board, state.get_current_player())
 
-    input_tensor = torch.stack((
-        board_tensor,
-        state.get_current_player() * player_tensor
-    ))
-    return input_tensor
 
-def tensor_to_state(tensor = None):
+def mirror_board(board):
     """
-    Transforms tensor to be fed into NN into a boardstate.
+    Connect Four ist links-rechts-symmetrisch. Das Spiegeln liefert eine gueltige,
+    aber andere Trainingsstellung - kostenlos doppelt so viele Daten.
     """
-    
-    board = tensor[0].numpy()
-    player = 1 if tensor[1].numpy()[0][0] == 1 else -1
+    return np.ascontiguousarray(np.asarray(board)[:, ::-1])
 
-    CF = ConnectFour(board = board, currentPlayer=player)
 
-    return CF
+def mirror_policy(policy):
+    return np.ascontiguousarray(np.asarray(policy)[::-1])
 
 
 def load_model(model_path=None, model_tag=None):

@@ -2,9 +2,14 @@ sqlalchemy
 psycopg2
 numpy==2.3.4
 matplotlib==3.10.7
+tqdm
 torch
 torchvision
 torchaudio
+
+# Tests
+pytest
+pytest-asyncio
 
 # Installation mit CUDA:
 # pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cu121

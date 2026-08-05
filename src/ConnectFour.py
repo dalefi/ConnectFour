@@ -1,6 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from mcts.base.base import BaseState, BaseAction
 
 
@@ -14,11 +12,16 @@ class ConnectFour(BaseState):
     # Spaltenreihenfolge: Mitte zuerst – verbessert Alpha-Beta-Pruning erheblich
     COLUMN_ORDER = sorted(range(7), key=lambda c: abs(c - 3))  # [3,2,4,1,5,0,6]
 
-    def __init__(self, board=None, currentPlayer=1, last_move=(0, 0)):
+    # Richtungen fuer die Gewinnpruefung: waagerecht, senkrecht, beide Diagonalen
+    WIN_DIRECTIONS = ((0, 1), (1, 0), (1, 1), (1, -1))
+
+    def __init__(self, board=None, currentPlayer=1, last_move=None):
         """
         board: np.array of shape (6,7) with 0 for empty, 1 for Player 1's coin and -1 accordingly
         currentPlayer: +-1 for the current player
-        last_move: tuple (x,y) for position of last played coin
+        last_move: tuple (row, col) of the last played coin, or None if unknown.
+                   Ist er bekannt, genuegt eine lokale Gewinnpruefung um diesen Stein
+                   herum; sonst muss das ganze Brett gescannt werden.
         """
         if board is None:
             board = np.zeros((6, 7), dtype=np.int8)
@@ -26,6 +29,10 @@ class ConnectFour(BaseState):
         self.board = board
         self.currentPlayer = currentPlayer
         self.last_move = last_move
+
+        # Caches; None bedeutet "noch nicht berechnet". make_move setzt sie zurueck.
+        self._winner = None
+        self._terminal = None
 
     def __str__(self):
         return str((self.board, f"Turn: Player {self.currentPlayer}"))
@@ -40,20 +47,16 @@ class ConnectFour(BaseState):
 
     def get_reward(self):
         # Always return -1 to the player whose turn it is now -> they lost
-        if self.vertical_check() != 0:
-            reward = -1
-        elif self.horizontal_check() != 0:
-            reward = -1
-        elif self.diagonal_check() != 0:
-            reward = -1
-        elif self.board_is_full():
-            reward = 0
-        else:
-            raise AssertionError("Game hasn't finished but there is supposedly a reward")
-        return reward
+        if self.get_winner() != 0:
+            return -1
+        if self.board_is_full():
+            return 0
+        raise AssertionError("Game hasn't finished but there is supposedly a reward")
 
     def is_terminal(self):
-        return self.game_over()
+        if self._terminal is None:
+            self._terminal = self.get_winner() != 0 or self.board_is_full()
+        return self._terminal
 
     def take_action(self, action):
         newState = ConnectFour(
@@ -64,60 +67,85 @@ class ConnectFour(BaseState):
         newState.make_move(action.target_column, action.player)
         return newState
 
+    def copy(self):
+        """
+        Eigenstaendige Kopie. Wird u.a. gebraucht, weil der MCTS-Baum eine Stellung
+        ueber mehrere Zuege haelt, waehrend der Aufrufer auf seinem Objekt weiterspielt.
+        """
+        return ConnectFour(
+            board=self.board.copy(),
+            currentPlayer=self.currentPlayer,
+            last_move=self.last_move
+        )
+
     def switch_player(self):
         return (-1) * self.currentPlayer
 
-    def vertical_check(self):
-        for col_idx in range(self.board.shape[1]):
-            for row_idx in range(self.board.shape[0] - 3):
-                window = self.board[row_idx:row_idx + 4, col_idx]
-                if np.all(window == window[0]) and window[0] != 0:
-                    return window[0]
+    def _winner_around_last_move(self):
+        """
+        Eine Viererreihe kann nur ueber den zuletzt gesetzten Stein entstanden sein.
+        Es genuegt also, von diesem Stein aus in vier Richtungen nach aussen zu zaehlen.
+        """
+        row, column = self.last_move
+        board = self.board
+        player = board.item(row, column)
+        if player == 0:
+            return 0
+
+        for delta_row, delta_column in self.WIN_DIRECTIONS:
+            in_a_row = 1
+            for sign in (1, -1):
+                step_row = delta_row * sign
+                step_column = delta_column * sign
+                current_row = row + step_row
+                current_column = column + step_column
+                while (0 <= current_row < 6 and 0 <= current_column < 7
+                       and board.item(current_row, current_column) == player):
+                    in_a_row += 1
+                    if in_a_row >= 4:
+                        return player
+                    current_row += step_row
+                    current_column += step_column
+
         return 0
 
-    def horizontal_check(self):
-        for row_idx in range(self.board.shape[0]):
-            for col_idx in range(self.board.shape[1] - 3):
-                window = self.board[row_idx, col_idx:col_idx + 4]
-                if np.all(window == window[0]) and window[0] != 0:
-                    return window[0]
-        return 0
-
-    def diagonal_check(self):
-        rows, cols = self.board.shape
-
-        # Check \ direction
-        for r in range(rows - 3):
-            for c in range(cols - 3):
-                window = [self.board[r + i][c + i] for i in range(4)]
-                if window[0] != 0 and all(cell == window[0] for cell in window):
-                    return window[0]
-
-        # Check / direction
-        for r in range(3, rows):
-            for c in range(cols - 3):
-                window = [self.board[r - i][c + i] for i in range(4)]
-                if window[0] != 0 and all(cell == window[0] for cell in window):
-                    return window[0]
-
+    def _winner_by_full_scan(self):
+        """
+        Fallback fuer Bretter, deren letzter Zug unbekannt ist (z.B. aus einem
+        Tensor oder aus der Datenbank rekonstruiert).
+        """
+        board = self.board
+        for row in range(6):
+            for column in range(7):
+                player = board.item(row, column)
+                if player == 0:
+                    continue
+                for delta_row, delta_column in self.WIN_DIRECTIONS:
+                    end_row = row + 3 * delta_row
+                    end_column = column + 3 * delta_column
+                    if not (0 <= end_row < 6 and 0 <= end_column < 7):
+                        continue
+                    if all(
+                        board.item(row + i * delta_row, column + i * delta_column) == player
+                        for i in range(1, 4)
+                    ):
+                        return player
         return 0
 
     def board_is_full(self):
-        return not np.isin(self.board, 0).any()
+        # Steine stapeln sich von unten: ist die oberste Zeile voll, ist das Brett voll.
+        return 0 not in self.board[0]
 
     def game_over(self):
-        if abs(self.vertical_check()) or abs(self.horizontal_check()) or abs(self.diagonal_check()):
-            return True
-        elif self.board_is_full():
-            return True
-        return False
+        return self.is_terminal()
 
     def get_winner(self):
-        for check in [self.vertical_check, self.horizontal_check, self.diagonal_check]:
-            winner = check()
-            if winner != 0:
-                return winner
-        return 0
+        if self._winner is None:
+            if self.last_move is None:
+                self._winner = self._winner_by_full_scan()
+            else:
+                self._winner = self._winner_around_last_move()
+        return self._winner
 
     def make_move(self, target_column=None, currentPlayer=None):
         if currentPlayer is None:
@@ -140,6 +168,10 @@ class ConnectFour(BaseState):
                 self.last_move = played_move
                 break
 
+        # Das Brett hat sich geaendert -> zwischengespeicherte Ergebnisse verwerfen
+        self._winner = None
+        self._terminal = None
+
         self.currentPlayer = self.switch_player()
         return played_move
 
@@ -149,6 +181,11 @@ class ConnectFour(BaseState):
         self.make_move(random_column)
 
     def display_board(self):
+        # Lokaler Import: matplotlib wird nur zum Anzeigen gebraucht und soll nicht
+        # in jedem Selfplay-Worker-Prozess mitgeladen werden.
+        import matplotlib.pyplot as plt
+        import matplotlib.patches as mpatches
+
         board = self.board
         rows, cols = board.shape
 

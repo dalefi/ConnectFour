@@ -10,11 +10,12 @@ from torch.utils.data import Dataset
 from tqdm.asyncio import tqdm
 
 from src import ConnectFour
-from src.CFNet import CFNet, load_model
+from src.CFNet import CFNet, encode_boards, load_model
 from src.NeuralNetBatcher import NeuralNetBatcher
 from mcts.searcher.mcts_searcher import mcts_searcher
 from src.database.db_handler import DatabaseHandler
 from src.selfplay_parallel import update_statistics_and_db
+from src.utils import temperature_for_move
 
 
 def boardstate_to_list(boardstate):
@@ -23,28 +24,41 @@ def boardstate_to_list(boardstate):
 
 
 class MoveDataset(Dataset):
-    def __init__(self, moves):
-        self.moves = moves
+    """
+    augment: spiegelt jede Stellung mit 50% Wahrscheinlichkeit links-rechts.
+             Connect Four ist symmetrisch, das verdoppelt die effektive Datenmenge.
+    """
+
+    def __init__(self, moves, augment=True):
+        self.augment = augment
+        # Nur fuer Tests: erzwingt das Spiegeln statt es auszuwuerfeln.
+        self._force_mirror = False
+
+        # Den ganzen Buffer einmal vektorisiert umwandeln statt pro Zugriff.
+        boards = np.array([move.board_state for move in moves], dtype=np.int8).reshape(-1, 6, 7)
+        players = np.array([move.current_player for move in moves], dtype=np.int8)
+
+        self.inputs = encode_boards(boards, players)
+        self.policies = torch.from_numpy(
+            np.array([move.policy for move in moves], dtype=np.float32).reshape(-1, 7)
+        )
+        self.values = torch.from_numpy(
+            np.array([move.value for move in moves], dtype=np.float32)
+        )
 
     def __len__(self):
-        return len(self.moves)
+        return self.inputs.shape[0]
 
     def __getitem__(self, idx):
-        move = self.moves[idx]
+        input_tensor = self.inputs[idx]
+        policy = self.policies[idx]
 
-        board = np.array(move.board_state)
-        current_player = move.current_player
+        if self.augment and (self._force_mirror or np.random.random() < 0.5):
+            # Spiegeln an der Spaltenachse: Brett und Policy muessen zusammen kippen.
+            input_tensor = torch.flip(input_tensor, dims=[2])
+            policy = torch.flip(policy, dims=[0])
 
-        player_tensor = torch.ones(6, 7, dtype=torch.float32)
-        input_tensor = torch.stack((
-            torch.tensor(board, dtype=torch.float32),
-            current_player * player_tensor
-        ))
-
-        policy = torch.tensor(move.policy, dtype=torch.float32)
-        result = torch.tensor(move.value, dtype=torch.float32)
-
-        return input_tensor, policy, result
+        return input_tensor, policy, self.values[idx]
 
 async def generate_dataset(
         duration_hours=1.0,
@@ -152,7 +166,8 @@ async def play_one_game(batcher,
                         stats,
                         active_games_status):
 
-    current_state = ConnectFour.ConnectFour().random_start_state(max_random_moves=6)
+    current_state = ConnectFour.ConnectFour.random_start_state(max_random_moves=6)
+    # Ein Searcher pro Partie: so bleibt der Teilbaum ueber die Zuege hinweg erhalten.
     searcher = mcts_searcher(iteration_limit=iteration_limit, batcher=batcher)
     game_history = []
 
@@ -163,7 +178,13 @@ async def play_one_game(batcher,
         if active_games_status:
             active_games_status[worker_id] = f"W{worker_id:02d}:M{move_count:02d}"
 
-        nn_eval, nn_policy, mcts_policy = await searcher.search(current_state)
+        # Dirichlet-Rauschen an der Wurzel ist beim Erzeugen von Trainingsdaten
+        # zwingend - sonst kann die Suche den Prior des Netzes nie verlassen.
+        nn_eval, nn_policy, mcts_policy = await searcher.search(
+            current_state,
+            add_noise=True,
+            temperature=1.0
+        )
 
         game_history.append({
             "boardstate": boardstate_to_list(current_state),
@@ -173,7 +194,12 @@ async def play_one_game(batcher,
             "current_player": int(current_state.get_current_player())
         })
 
-        next_move = np.random.choice(range(7), p=mcts_policy)
+        # Trainingsziel bleibt die Besuchsverteilung bei Temperatur 1 (oben);
+        # gezogen wird nur in der Eroeffnung zufaellig, danach greedy.
+        move_policy = searcher.get_policy_from_child_visits(
+            temperature=temperature_for_move(move_count)
+        )
+        next_move = int(np.random.choice(7, p=move_policy))
         current_state.make_move(next_move)
         move_count += 1
 

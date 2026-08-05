@@ -19,9 +19,16 @@ MANIFEST
 # Virtual environment
 env/
 venv/
+.venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Test / tooling
+.pytest_cache/
+__pycache__/
+*.pyc
+.idea/
 
 # Jupyter Notebook
 .ipynb_checkpoints

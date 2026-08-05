@@ -7,7 +7,7 @@ from mcts.searcher.mcts_searcher import mcts_searcher
 from src.ConnectFour import ConnectFour, Action
 from src.CFNet import load_model
 from src.NeuralNetBatcher import NeuralNetBatcher
-from src.utils import get_filename
+from src.utils import enable_utf8_console, get_filename
 
 
 # ── Minimax-Zug (synchron, in Thread ausgeführt) ─────────────────────────────
@@ -57,6 +57,13 @@ async def play_one_game(
     move_number    = 0
     net_move_count = 0  # zählt nur die eigenen Netz-Züge für Temperature-Cutoff
 
+    # Ein Searcher pro Partie, damit der Teilbaum zwischen den Zuegen erhalten bleibt.
+    searcher = mcts_searcher(
+        iteration_limit=iteration_limit,
+        batcher=batcher,
+        device=device,
+    )
+
     while not running_state.is_terminal():
         current_player = running_state.get_current_player()
 
@@ -68,12 +75,11 @@ async def play_one_game(
             )
             pbar.refresh()
 
-            searcher = mcts_searcher(
-                iteration_limit=iteration_limit,
-                batcher=batcher,
-                device=device,
+            _, _, mcts_policy = await searcher.search(
+                initial_state=running_state,
+                add_noise=False,
+                temperature=1.0,
             )
-            _, _, mcts_policy = await searcher.search(initial_state=running_state)
 
             if net_move_count < temperature_moves:
                 next_move = sample_with_temperature(mcts_policy, temperature)
@@ -222,6 +228,8 @@ async def run_benchmark(
                            genutzt wird (danach argmax). 0 = immer argmax.
     temperature          : Temperature-Wert (1.0 = proportional zur Policy)
     """
+    enable_utf8_console()
+
     model_name = get_filename(model_path)
     model      = load_model(model_path=model_path, model_tag=model_name)
     batcher    = NeuralNetBatcher(model, device, batch_size=16)

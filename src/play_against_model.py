@@ -33,13 +33,22 @@ batcher = NeuralNetBatcher(model, DEVICE, batch_size=1)
 
 # ── KI-Zug: MCTS (async) ─────────────────────────────────────────────────────
 
+# Ein Searcher fuer die ganze Sitzung: behaelt den Teilbaum zwischen den Zuegen.
+SEARCHER = mcts_searcher(
+    iteration_limit=ITERATION_LIMIT,
+    batcher=batcher,
+    device=DEVICE,
+)
+
+
 async def get_mcts_move(state: ConnectFour) -> int:
-    searcher = mcts_searcher(
-        iteration_limit=ITERATION_LIMIT,
-        batcher=batcher,
-        device=DEVICE,
+    # Gegen einen Menschen wird immer der beste Zug gespielt: kein Rauschen,
+    # Temperatur 0.
+    _, _, mcts_policy = await SEARCHER.search(
+        initial_state=state,
+        add_noise=False,
+        temperature=0.0,
     )
-    _, _, mcts_policy = await searcher.search(initial_state=state)
     return int(np.argmax(mcts_policy))
 
 

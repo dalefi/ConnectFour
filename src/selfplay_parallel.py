@@ -8,7 +8,7 @@ from src.ConnectFour import ConnectFour
 from src.CFNet import load_model
 from src.NeuralNetBatcher import NeuralNetBatcher
 from src.database.db_handler import DatabaseHandler
-from src.utils import get_filename
+from src.utils import get_filename, temperature_for_move
 
 
 def update_statistics_and_db(
@@ -87,9 +87,19 @@ async def play_one_game_async(
     # Rollenverteilung für dieses spezifische Spiel
     player_roles = {1: first_player_role, -1: second_player_role}
 
+    # Je ein Searcher pro Seite, ueber die ganze Partie hinweg: dadurch bleibt der
+    # Teilbaum nach jedem eigenen Zug erhalten statt jedes Mal neu aufgebaut zu werden.
+    searchers = {
+        role: mcts_searcher(
+            iteration_limit=iteration_limit,
+            batcher=batchers[role],
+            device=device
+        )
+        for role in ("current", "updated")
+    }
+
     while not running_state.is_terminal():
         current_role = player_roles[running_state.get_current_player()]
-        current_batcher = batchers[current_role]
 
         # STATUS UPDATE für die Anzeige
         active_games_status[game_id] = f"G{game_id:02d}:{current_role[0].upper()}{move_number:02d}"
@@ -98,24 +108,20 @@ async def play_one_game_async(
         pbar.set_description(f"Selfplay [{status_str}]")
         pbar.refresh()
 
-        # MCTS Searcher für diesen Zug erstellen
-        searcher = mcts_searcher(
-            iteration_limit=iteration_limit,
-            batcher=current_batcher,
-            device=device
+        searcher = searchers[current_role]
+
+        # Bewertungspartien: kein Rauschen, damit die Spielstaerke gemessen wird und
+        # nicht die Zufallskomponente. Die Eroeffnungsvielfalt kommt aus der Temperatur.
+        nn_eval, nn_policy, mcts_policy = await searcher.search(
+            initial_state=running_state,
+            add_noise=False,
+            temperature=1.0
         )
 
-        # Suche asynchron ausführen
-        nn_eval, nn_policy, mcts_policy = await searcher.search(initial_state=running_state)
-
-        # Dirichlet-Noise beim ersten Zug
-        if move_number == 0:
-            epsilon, alpha = 0.25, 0.3
-            noise = np.random.dirichlet([alpha] * len(mcts_policy))
-            mcts_policy = (1 - epsilon) * mcts_policy + epsilon * noise
-
-        # Sampling nach Policy
-        next_move = np.random.choice(len(mcts_policy), p=mcts_policy)
+        move_policy = searcher.get_policy_from_child_visits(
+            temperature=temperature_for_move(move_number)
+        )
+        next_move = int(np.random.choice(7, p=move_policy))
 
         game_moves.append({
             "move_number": move_number,
