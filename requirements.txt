@@ -1,15 +1,25 @@
+# Installation: siehe README.
+#
+# WICHTIG: diese Datei NICHT mit --index-url gegen den PyTorch-Index installieren.
+# --index-url ersetzt PyPI komplett, und dort liegen nur torch-Pakete - psycopg2,
+# sqlalchemy usw. sind dann nicht auffindbar. Fuer CUDA zuerst torch vom
+# PyTorch-Index installieren, danach diese Datei ganz normal von PyPI:
+#
+#   pip install torch --index-url https://download.pytorch.org/whl/cu126
+#   pip install -r requirements.txt
+
 sqlalchemy
 psycopg2
 numpy==2.3.4
 matplotlib==3.10.7
 tqdm
 torch
-torchvision
-torchaudio
+
+# torchvision und torchaudio werden im Projekt nirgends importiert und ziehen
+# mehrere hundert MB. Bei Bedarf einfach wieder einkommentieren.
+# torchvision
+# torchaudio
 
 # Tests
 pytest
 pytest-asyncio
-
-# Installation mit CUDA:
-# pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cu121

@@ -21,11 +21,23 @@ die Übereinstimmung von Trainings- und Suchkodierung.
 
 Alle Befehle vom Projekt-Root aus, damit `src.*` importierbar ist.
 
-1. Abhängigkeiten (mit CUDA, siehe Kommentar in `requirements.txt`):
+1. Abhängigkeiten. Erst torch vom PyTorch-Index, dann der Rest von PyPI:
 
 ```bash
-pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cu121
+pip install torch --index-url https://download.pytorch.org/whl/cu126
 ```
+
+```bash
+pip install -r requirements.txt
+```
+
+`--index-url` **ersetzt** PyPI, statt es zu ergänzen — auf dem PyTorch-Index
+liegen nur torch-Pakete. Deshalb zwei Befehle: der zweite lässt das bereits
+installierte CUDA-torch in Ruhe und holt nur die übrigen Pakete.
+
+Ohne CUDA reicht `pip install -r requirements.txt` allein (torch kommt dann als
+CPU-Build von PyPI). Der Kanal muss zur Treiberversion passen; `cu121` hat für
+Python 3.13 keine Wheels mehr, aktuell sind `cu126` und `cu128`.
 
 2. Postgres hochfahren:
 
