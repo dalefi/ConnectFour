@@ -1,13 +1,14 @@
 import asyncio
 import os
 import numpy as np
+import torch
 from tqdm.asyncio import tqdm
 
 from mcts.searcher.mcts_searcher import mcts_searcher
 from src.ConnectFour import ConnectFour, Action
 from src.CFNet import load_model
 from src.NeuralNetBatcher import NeuralNetBatcher
-from src.utils import enable_utf8_console, get_filename
+from src.utils import enable_utf8_console, get_filename, latest_model_path
 
 
 # ── Minimax-Zug (synchron, in Thread ausgeführt) ─────────────────────────────
@@ -290,11 +291,16 @@ if __name__ == "__main__":
     accepted_model_dir = os.path.join(project_root, "accepted_models")
 
     # ── Konfiguration ─────────────────────────────────────────────────────────
-    MODEL_PATH           = os.path.join(accepted_model_dir, "cfnet_20260215_224459.pt")
+    MODEL_PATH           = latest_model_path(accepted_model_dir)
+    if MODEL_PATH is None:
+        raise SystemExit(
+            f"Kein Modell in {accepted_model_dir} gefunden. "
+            f"Erst 'python -m src.training' laufen lassen."
+        )
     DEPTHS               = [2, 3, 4, 5, 6, 7, 8]
     NUM_PAIRS_PER_DEPTH  = 25    # → 50 Spiele pro Tiefe
     ITERATION_LIMIT      = 400
-    DEVICE               = "cuda"
+    DEVICE               = "cuda" if torch.cuda.is_available() else "cpu"
     RANDOM_OPENING_MOVES = 4     # 0 = leeres Brett, 4 = empfohlen
     TEMPERATURE_MOVES    = 3     # erste 3 Netz-Züge per Sampling
     TEMPERATURE          = 1.0

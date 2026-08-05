@@ -1,11 +1,15 @@
-from db_models import get_engine, Base, create_tables
 from sqlalchemy.orm import sessionmaker
+
+from src.database.db_models import get_engine, Base, create_tables
+from src.utils import enable_utf8_console
 
 def wipe_database(confirm=True):
     """
     Löscht alle Tabellen und erstellt sie neu.
     Setze confirm=False, um ohne Nachfrage zu löschen.
     """
+    enable_utf8_console()
+
     engine = get_engine(host="localhost")
     Session = sessionmaker(bind=engine)
     session = Session()

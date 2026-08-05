@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 
@@ -202,6 +204,23 @@ def mirror_board(board):
 
 def mirror_policy(policy):
     return np.ascontiguousarray(np.asarray(policy)[::-1])
+
+
+def create_initial_model(output_dir, filename="cfnet_initial.pt"):
+    """
+    Legt ein untrainiertes Netz als Startpunkt ab und gibt den Pfad zurueck.
+    Existiert die Datei schon, bleibt sie unangetastet - ein versehentlicher
+    zweiter Aufruf soll den laufenden Trainingsstand nicht zuruecksetzen.
+    """
+    output_dir = str(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    model_path = os.path.join(output_dir, filename)
+
+    if not os.path.exists(model_path):
+        torch.save(CFNet().state_dict(), model_path)
+        print(f"Startmodell angelegt: {model_path}")
+
+    return model_path
 
 
 def load_model(model_path=None, model_tag=None):

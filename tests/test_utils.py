@@ -1,6 +1,44 @@
+import os
+import time
+
 import pytest
 
-from src.utils import calculate_percentages, gating_win_rate, temperature_for_move
+from src.utils import (
+    calculate_percentages,
+    gating_win_rate,
+    latest_model_path,
+    temperature_for_move,
+)
+
+
+# ---------------------------------------------------------------------------
+# Neuesten Checkpoint finden
+# ---------------------------------------------------------------------------
+
+def test_latest_model_path_picks_the_newest_checkpoint(tmp_path):
+    older = tmp_path / "cfnet_alt.pt"
+    newer = tmp_path / "cfnet_neu.pt"
+    older.write_bytes(b"x")
+    time.sleep(0.01)
+    newer.write_bytes(b"x")
+    os.utime(older, (1, 1))
+
+    assert latest_model_path(tmp_path) == str(newer)
+
+
+def test_latest_model_path_ignores_other_files(tmp_path):
+    (tmp_path / "notizen.txt").write_text("kein Modell")
+    (tmp_path / "cfnet.pt").write_bytes(b"x")
+
+    assert latest_model_path(tmp_path) == str(tmp_path / "cfnet.pt")
+
+
+def test_latest_model_path_returns_none_for_an_empty_directory(tmp_path):
+    assert latest_model_path(tmp_path) is None
+
+
+def test_latest_model_path_returns_none_for_a_missing_directory(tmp_path):
+    assert latest_model_path(tmp_path / "gibtsnicht") is None
 
 
 # ---------------------------------------------------------------------------

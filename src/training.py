@@ -5,12 +5,17 @@ import os
 import torch
 
 from src.benchmark_vs_minimax import run_benchmark
-from src.CFNet import load_model
+from src.CFNet import create_initial_model, load_model
 from src.database.db_handler import DatabaseHandler
 from src.generate_training_data import MoveDataset, process_entry_generate_dataset
 from src.selfplay_parallel import selfplay_parallel, process_entry_selfplay
 from src.utils import timing, get_filename, gating_win_rate, enable_utf8_console
 from src.update_model import update_model
+
+
+def accepted_models_dir():
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(project_root, "accepted_models")
 
 
 def run_in_processes(target, args_per_process):
@@ -53,6 +58,10 @@ def train_model(
 
     enable_utf8_console()
     db = DatabaseHandler()
+
+    if generating_model_path is None:
+        # Erster Lauf: mit einem untrainierten Netz anfangen.
+        generating_model_path = create_initial_model(accepted_models_dir())
 
     for iteration in range(num_iterations):
         model_name = get_filename(generating_model_path)
@@ -151,14 +160,9 @@ def train_model(
 
 
 if __name__ == "__main__":
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(script_dir)
-    model_output_dir = os.path.join(project_root, "accepted_models")
-
-    generating_model_path = os.path.join(
-        model_output_dir,
-        "cfnet_20260215_224459.pt"
-    )
+    # Pfad zu einem vorhandenen Checkpoint eintragen, um dort weiterzumachen.
+    # None = bei einem frischen, untrainierten Netz anfangen.
+    generating_model_path = None
 
     final_model = train_model(num_iterations=10,
                               dataset_generation_time=0.5,

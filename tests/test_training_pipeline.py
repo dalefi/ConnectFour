@@ -151,6 +151,35 @@ def test_the_winning_role_is_recorded_for_gating():
 
 
 # ---------------------------------------------------------------------------
+# Startpunkt des Trainings
+# ---------------------------------------------------------------------------
+
+def test_create_initial_model_writes_a_loadable_checkpoint(tmp_path):
+    """
+    Ohne vorhandenes Modell muss das Training bei einem frischen Netz anfangen
+    koennen - sonst braucht der erste Lauf einen Checkpoint, den es nicht gibt.
+    """
+    from src.CFNet import create_initial_model, load_model
+
+    path = create_initial_model(tmp_path)
+
+    assert path.endswith(".pt")
+    model = load_model(path, "bootstrap")
+    output = model(ConnectFour())
+    assert output["value"].shape == (1, 1)
+    assert output["policy"].shape == (1, 7)
+
+
+def test_create_initial_model_does_not_overwrite_an_existing_one(tmp_path):
+    from src.CFNet import create_initial_model
+
+    first = create_initial_model(tmp_path)
+    second = create_initial_model(tmp_path)
+
+    assert first == second
+
+
+# ---------------------------------------------------------------------------
 # Ein echter Trainingsschritt
 # ---------------------------------------------------------------------------
 

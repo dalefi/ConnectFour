@@ -1,7 +1,10 @@
 from sqlalchemy import text
-from db_models import get_engine, create_tables
+
+from src.database.db_models import get_engine, create_tables
+from src.utils import enable_utf8_console
 
 if __name__ == "__main__":
+    enable_utf8_console()
     engine = get_engine(host="localhost")
 
     # --- 1️⃣ Alte Tabellen löschen ---

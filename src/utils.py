@@ -37,6 +37,22 @@ def get_filename(path_str: str) -> str:
     return Path(path_str).stem
 
 
+def latest_model_path(directory) -> str | None:
+    """
+    Neuester .pt-Checkpoint in `directory`, oder None wenn es dort keinen gibt.
+    Damit muessen die Einstiegsskripte keinen Dateinamen fest verdrahten.
+    """
+    directory = Path(directory)
+    if not directory.is_dir():
+        return None
+
+    checkpoints = [entry for entry in directory.glob("*.pt") if entry.is_file()]
+    if not checkpoints:
+        return None
+
+    return str(max(checkpoints, key=lambda entry: entry.stat().st_mtime))
+
+
 def enable_utf8_console() -> None:
     """
     Windows-Konsolen laufen standardmaessig unter cp1252. Zeichen wie '->' als

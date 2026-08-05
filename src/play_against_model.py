@@ -4,6 +4,7 @@ import queue
 import threading
 
 import numpy as np
+import torch
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.widgets import RadioButtons, Slider, Button
@@ -11,6 +12,7 @@ from matplotlib.widgets import RadioButtons, Slider, Button
 from src.ConnectFour import ConnectFour, Action
 from src.CFNet import load_model
 from src.NeuralNetBatcher import NeuralNetBatcher
+from src.utils import latest_model_path
 from mcts.searcher.mcts_searcher import mcts_searcher
 
 
@@ -19,14 +21,17 @@ script_dir   = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 model_output_dir = os.path.join(project_root, "accepted_models")
 
-MODEL_PATH = os.path.join(
-    model_output_dir,
-    "cfnet_20260215_224459.pt"
-)
+MODEL_PATH = latest_model_path(model_output_dir)
+if MODEL_PATH is None:
+    raise SystemExit(
+        f"Kein Modell in {model_output_dir} gefunden. "
+        f"Erst 'python -m src.training' laufen lassen."
+    )
 
 ITERATION_LIMIT = 400
-DEVICE          = "cuda"
+DEVICE          = "cuda" if torch.cuda.is_available() else "cpu"
 
+print(f"Modell: {MODEL_PATH}  |  Device: {DEVICE}")
 model   = load_model(model_path=MODEL_PATH, model_tag=MODEL_PATH)
 batcher = NeuralNetBatcher(model, DEVICE, batch_size=1)
 
