@@ -21,8 +21,14 @@ torch
 # torchaudio
 
 # Perfekter Solver als absoluter Massstab (src/solver_benchmark.py).
-# Optional - ohne das Paket werden die zugehoerigen Tests uebersprungen.
-connect-four-ai
+# NICHT hier eintragen: es gibt nur ein einziges Wheel (CPython 3.13, Windows
+# x86-64) und kein sdist. Auf jeder anderen Kombination bricht die Installation
+# der gesamten Datei ab. Separat installieren, wenn die Plattform passt:
+#
+#   pip install connect-four-ai
+#
+# src/solver_benchmark.py importiert das Paket erst bei Benutzung, die Tests
+# ueberspringen sich ohne es.
 
 # Tests
 pytest
