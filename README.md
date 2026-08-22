@@ -78,6 +78,20 @@ python -m src.play_against_model
 python -m src.benchmark_vs_minimax
 ```
 
+### Spielstärke absolut messen (perfekter Solver)
+
+```bash
+python -m src.solver_benchmark
+```
+
+Misst gegen `connect-four-ai` (Rust, strong-solved), wie oft das Modell den
+exakt optimalen Zug spielt. Beim ersten Aufruf wird einmalig ein Stellungssatz
+gelöst und unter `data/solver_benchmark.json` abgelegt (dauert einige Minuten);
+danach kostet jede Bewertung nur noch die Inferenz des Modells.
+
+Anders als Minimax mit fester Tiefe ist das ein **absoluter** Maßstab: 100 %
+optimale Züge heißt perfektes Spiel, es gibt kein Darüber.
+
 ## TODO
 
 - nur stellungen mit gewinnzug ausprobieren

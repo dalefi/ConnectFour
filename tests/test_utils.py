@@ -65,6 +65,51 @@ def test_exploration_length_is_configurable():
 
 
 # ---------------------------------------------------------------------------
+# Farbverteilung in den Bewertungspartien
+# ---------------------------------------------------------------------------
+
+def test_role_schedule_gives_both_sides_the_same_number_of_starts():
+    """
+    Der Anziehende hat bei Vier Gewinnt einen echten Vorteil. Beginnt eine Seite
+    oefter, misst das Gating diesen Vorteil statt der Spielstaerke.
+    """
+    from src.utils import role_schedule
+
+    for num_games in (2, 10, 24, 200):
+        schedule = role_schedule(num_games, "champion", "challenger")
+        assert len(schedule) == num_games
+        starts = [first for first, _ in schedule]
+        assert starts.count("champion") == starts.count("challenger")
+
+
+def test_role_schedule_is_at_most_one_apart_for_odd_counts():
+    from src.utils import role_schedule
+
+    starts = [first for first, _ in role_schedule(25, "champion", "challenger")]
+    assert abs(starts.count("champion") - starts.count("challenger")) <= 1
+
+
+def test_role_schedule_always_pairs_the_two_roles():
+    from src.utils import role_schedule
+
+    for first, second in role_schedule(8, "champion", "challenger"):
+        assert {first, second} == {"champion", "challenger"}
+
+
+def test_even_games_per_worker_keeps_the_split_exact():
+    """
+    200 Partien auf 8 Prozesse ergab 25 je Prozess - eine ungerade Zahl, bei der
+    eine Seite pro Prozess einmal oefter beginnt.
+    """
+    from src.utils import even_games_per_worker
+
+    assert even_games_per_worker(200, 8) == 24
+    assert even_games_per_worker(50, 8) == 6
+    assert even_games_per_worker(3, 8) == 2
+    assert even_games_per_worker(16, 4) == 4
+
+
+# ---------------------------------------------------------------------------
 # Gating-Kriterium
 # ---------------------------------------------------------------------------
 

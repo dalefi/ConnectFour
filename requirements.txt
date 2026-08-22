@@ -20,6 +20,10 @@ torch
 # torchvision
 # torchaudio
 
+# Perfekter Solver als absoluter Massstab (src/solver_benchmark.py).
+# Optional - ohne das Paket werden die zugehoerigen Tests uebersprungen.
+connect-four-ai
+
 # Tests
 pytest
 pytest-asyncio

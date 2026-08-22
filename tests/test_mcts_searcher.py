@@ -443,7 +443,7 @@ async def test_search_blocks_an_immediate_loss():
         ".......",
         ".......",
         ".......",
-        ".......",
+        "x......",
         "ooo.x.x",
     ], current_player=1)
 

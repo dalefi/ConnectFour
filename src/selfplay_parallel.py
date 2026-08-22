@@ -8,7 +8,7 @@ from src.ConnectFour import ConnectFour
 from src.CFNet import load_model
 from src.NeuralNetBatcher import NeuralNetBatcher
 from src.database.db_handler import DatabaseHandler
-from src.utils import get_filename, temperature_for_move
+from src.utils import get_filename, role_schedule, temperature_for_move
 
 
 def update_statistics_and_db(
@@ -191,14 +191,12 @@ async def selfplay_parallel(
                                       pbar,
                                       active_games_status)
 
-    tasks = []
-    half_games = num_games // 2
-
-    for i in range(num_games):
-        if i < half_games:
-            tasks.append(sem_task(i, "current", "updated"))
-        else:
-            tasks.append(sem_task(i, "updated", "current"))
+    # Abwechselnd anfangen, damit der Vorteil des Anziehenden sich exakt aufhebt.
+    tasks = [
+        sem_task(game_id, first_role, second_role)
+        for game_id, (first_role, second_role)
+        in enumerate(role_schedule(num_games, "current", "updated"))
+    ]
 
     # Alle Spiele parallel ausführen
     await asyncio.gather(*tasks)

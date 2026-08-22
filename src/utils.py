@@ -79,6 +79,29 @@ def temperature_for_move(move_number: int, exploration_moves: int = 8) -> float:
     return 1.0 if move_number < exploration_moves else 0.0
 
 
+def role_schedule(num_games: int, first_role: str, second_role: str) -> list[tuple[str, str]]:
+    """
+    Wechselt bei jeder Partie ab, wer anfaengt. Bei gerader Partienzahl beginnt
+    jede Seite exakt gleich oft.
+
+    Wichtig, weil der Anziehende bei Vier Gewinnt einen echten Vorteil hat: eine
+    schiefe Verteilung landet direkt als Scheingewinn in der Promotionsschwelle.
+    """
+    return [
+        (first_role, second_role) if game_index % 2 == 0 else (second_role, first_role)
+        for game_index in range(num_games)
+    ]
+
+
+def even_games_per_worker(num_games: int, num_workers: int) -> int:
+    """
+    Partien je Prozess, auf eine gerade Zahl abgerundet (mindestens 2), damit
+    role_schedule beide Seiten exakt gleich oft anfangen laesst.
+    """
+    per_worker = num_games // max(num_workers, 1)
+    return max(per_worker - (per_worker % 2), 2)
+
+
 def gating_win_rate(stats: dict[str, int]) -> float:
     """
     Anteil gewonnener Partien des Herausforderers unter den *entschiedenen* Partien.

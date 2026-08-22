@@ -9,7 +9,13 @@ from src.CFNet import create_initial_model, load_model
 from src.database.db_handler import DatabaseHandler
 from src.generate_training_data import MoveDataset, process_entry_generate_dataset
 from src.selfplay_parallel import selfplay_parallel, process_entry_selfplay
-from src.utils import timing, get_filename, gating_win_rate, enable_utf8_console
+from src.utils import (
+    timing,
+    get_filename,
+    gating_win_rate,
+    enable_utf8_console,
+    even_games_per_worker,
+)
 from src.update_model import update_model
 
 
@@ -97,7 +103,8 @@ def train_model(
 
         # Die Bewertungspartien werden auf die Prozesse *aufgeteilt*, nicht pro
         # Prozess neu gespielt - sonst laufen num_validation_games * num_prozesse.
-        games_per_process = max(num_validation_games // num_worker_processes, 1)
+        # Gerade Anzahl je Prozess, damit beide Seiten gleich oft anfangen.
+        games_per_process = even_games_per_worker(num_validation_games, num_worker_processes)
 
         run_in_processes(
             process_entry_selfplay,
