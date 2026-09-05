@@ -1,13 +1,15 @@
 import os
 import sys
 from pathlib import Path
-
-import torch
 from functools import wraps
 from time import time
 
 
 def save_model(model, filename):
+    # torch nur hier importieren: sonst braucht schon das blosse Laden des
+    # Spielbretts eine torch-Installation (utils wird ueberall mitgezogen).
+    import torch
+
     os.makedirs("models", exist_ok=True)
 
     # Example: save a model
@@ -15,6 +17,8 @@ def save_model(model, filename):
     torch.save(model.state_dict(), model_path)
 
 def save_data(data, filename):
+    import torch
+
     # Create data directory if it doesn't exist
     os.makedirs("data", exist_ok=True)
 
