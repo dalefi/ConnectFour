@@ -119,13 +119,18 @@ TEMPLATE = r"""<!doctype html>
   }
   .hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
 
-  .evalrow { display: grid; grid-template-columns: 92px 1fr 62px; gap: 10px; align-items: center; }
+  .evalrow { display: grid; grid-template-columns: 100px 1fr 118px; gap: 10px; align-items: center; }
   .evalrow + .evalrow { margin-top: 8px; }
   .evalname { font-size: 12.5px; }
   .evaltrack { position: relative; height: 20px; background: #eef2f7; border-radius: 4px; overflow: hidden; }
   .evalfill { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
   .evalzero { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #b6c2d1; }
-  .evalnum { font: 13px ui-monospace, monospace; text-align: right; }
+  .evalnum { font: 14px ui-monospace, monospace; text-align: right; }
+  .evalnum small { display: block; font-size: 10.5px; color: var(--muted); }
+  .evalscale {
+    display: flex; justify-content: space-between; font-size: 11px;
+    color: var(--muted); margin: 6px 0 0; padding: 0 110px 0 110px;
+  }
 
   .policy { display: flex; gap: 6px; align-items: flex-end; }
   .pcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -193,10 +198,13 @@ TEMPLATE = r"""<!doctype html>
 
   <div>
     <div class="panel section">
-      <h2>Bewertung dieser Stellung</h2>
+      <h2>Bewertung dieser Stellung (aus Sicht Spieler 1, gelb)</h2>
       <div id="evals"></div>
-      <p class="hint">+1 heisst gewonnen fuer den Spieler <em>am Zug</em>, -1 verloren.
-        Die Differenz zwischen Netz und Suche ist der Beitrag von MCTS.</p>
+      <p class="hint">Der Abstand zwischen Netz und Suche ist der Beitrag von MCTS.
+        <br>Das Netz gibt seinen Wert immer aus Sicht des Spielers <em>am Zug</em>
+        aus - das ist der kleine Rohwert. Er kippt jeden Zug das Vorzeichen,
+        auch wenn die Einschaetzung gleich bleibt. Hier und in der Kurve wird
+        deshalb durchgehend auf Spieler 1 normiert.</p>
     </div>
 
     <div class="panel section">
@@ -206,6 +214,8 @@ TEMPLATE = r"""<!doctype html>
         <span><span class="swatch" style="background:var(--nn)"></span>Netz (Prior)</span>
         <span><span class="swatch" style="background:var(--mcts)"></span>Nach MCTS</span>
         <span style="color:var(--accent)">gruen = gespielter Zug</span>
+        <span>Besuche kumuliert (der Teilbaum bleibt ueber die Zuege erhalten,
+          daher mehr als das Iterationslimit)</span>
       </div>
     </div>
 
@@ -220,13 +230,14 @@ TEMPLATE = r"""<!doctype html>
   <h2 id="tabletitle"></h2>
   <table>
     <thead><tr>
-      <th>Gen</th><th>Modell</th><th>Netz</th><th>MCTS</th>
+      <th>Gen</th><th>Modell</th><th>Netz &#9679;</th><th>MCTS &#9679;</th>
       <th>Spalte Netz</th><th>Spalte MCTS</th><th>Ausgang</th>
     </tr></thead>
     <tbody id="tablebody"></tbody>
   </table>
   <p class="hint">Alle Modelle auf derselben Startstellung - der einzige garantiert
-    vergleichbare Punkt. Zeile anklicken wechselt das Modell.</p>
+    vergleichbare Punkt. Zeile anklicken wechselt das Modell.
+    &#9679; = Bewertung aus Sicht Spieler 1 (gelb), wie ueberall im Viewer.</p>
 </div>
 
 <script>
@@ -287,18 +298,24 @@ function drawBoard(move, startBoard) {
 
 // --- Bewertungsbalken -----------------------------------------------------
 
-function evalBar(name, value) {
+// Auf Spieler 1 normiert - dieselbe Konvention wie die Kurve. Der Rohwert ist
+// aus Sicht des Spielers am Zug und kippt daher jeden Zug das Vorzeichen; eine
+// gleichbleibende Einschaetzung saehe dort aus wie ein Sprung.
+function evalBar(name, raw, player) {
+  const value = raw * player;
   const magnitude = Math.min(Math.abs(value), 1) * 50;
   const style = value >= 0 ? `left:50%;width:${magnitude}%` : `right:50%;width:${magnitude}%`;
-  const color = value >= 0 ? "var(--accent)" : "var(--p2)";
-  const sign = value >= 0 ? "+" : "";
+  const color = value >= 0 ? "var(--p1)" : "var(--p2)";
+  const sign = value >= 0 ? "+" : "−";
+  const rawSign = raw >= 0 ? "+" : "−";
   return `<div class="evalrow">
     <span class="evalname">${name}</span>
     <div class="evaltrack">
       <div class="evalfill" style="${style};background:${color}"></div>
       <div class="evalzero"></div>
     </div>
-    <span class="evalnum">${sign}${value.toFixed(3)}</span>
+    <span class="evalnum">${sign}${Math.abs(value).toFixed(3)}
+      <small>roh ${rawSign}${Math.abs(raw).toFixed(3)}</small></span>
   </div>`;
 }
 
@@ -374,12 +391,15 @@ function drawTable() {
     const first = game.moves[0];
     const best = policy => policy.indexOf(Math.max(...policy));
     const outcome = { 1: "1 gewinnt", "-1": "-1 gewinnt", 0: "remis" };
+    // Gleiche Normierung wie Balken und Kurve, damit die Tabelle nicht die
+    // einzige Stelle mit einer anderen Konvention ist.
+    const view = first.current_player;
 
     return `<tr class="${index === modelIndex ? "current" : ""}" data-model="${index}">
       <td class="num">${model.generation}</td>
       <td>${model.tag}</td>
-      <td class="num">${first.nn_eval.toFixed(3)}</td>
-      <td class="num">${first.mcts_value.toFixed(3)}</td>
+      <td class="num">${(first.nn_eval * view).toFixed(3)}</td>
+      <td class="num">${(first.mcts_value * view).toFixed(3)}</td>
       <td class="num">${best(first.nn_policy)}</td>
       <td class="num">${best(first.mcts_policy)}</td>
       <td>${outcome[game.outcome.winner]}</td>
@@ -419,7 +439,10 @@ function render() {
 
   drawBoard(move, start.board);
   document.getElementById("evals").innerHTML =
-    evalBar("Netz", move.nn_eval) + evalBar("Netz + MCTS", move.mcts_value);
+    evalBar("Netz", move.nn_eval, move.current_player)
+    + evalBar("Netz + MCTS", move.mcts_value, move.current_player)
+    + '<div class="evalscale"><span>&#9664; Rot besser</span>'
+    + "<span>ausgeglichen</span><span>Gelb besser &#9654;</span></div>";
   drawPolicy(move);
   drawCurve(game);
   drawTable();
