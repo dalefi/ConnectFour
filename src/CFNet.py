@@ -227,7 +227,11 @@ def load_model(model_path=None, model_tag=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = CFNet()
     if model_path:
-        model.load_state_dict(torch.load(model_path, weights_only=True))
+        # map_location ist zwingend: die Checkpoints wurden unter CUDA gespeichert
+        # und lassen sich auf einem CPU-only-torch sonst gar nicht laden.
+        model.load_state_dict(
+            torch.load(model_path, weights_only=True, map_location=device)
+        )
     model.to(device)
     model.eval()
     model.tag = model_tag

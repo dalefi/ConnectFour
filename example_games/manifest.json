@@ -1,0 +1,711 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-05T15:54:08+00:00",
+  "git_commit": "c7ecbf9",
+  "config": {
+    "iteration_limit": 400,
+    "add_noise": false,
+    "move_selection": "greedy",
+    "seed": 20260905,
+    "max_random_moves": 4
+  },
+  "start_positions": [
+    {
+      "index": 0,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "current_player": 1,
+      "num_random_moves": 0
+    },
+    {
+      "index": 1,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          -1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          -1,
+          0,
+          0,
+          1,
+          1,
+          0,
+          0
+        ]
+      ],
+      "current_player": 1,
+      "num_random_moves": 4
+    },
+    {
+      "index": 2,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          -1,
+          0,
+          1,
+          0,
+          1
+        ]
+      ],
+      "current_player": -1,
+      "num_random_moves": 3
+    },
+    {
+      "index": 3,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          -1
+        ],
+        [
+          0,
+          0,
+          -1,
+          0,
+          0,
+          1,
+          1
+        ]
+      ],
+      "current_player": 1,
+      "num_random_moves": 4
+    },
+    {
+      "index": 4,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          -1,
+          1
+        ]
+      ],
+      "current_player": 1,
+      "num_random_moves": 2
+    },
+    {
+      "index": 5,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "current_player": -1,
+      "num_random_moves": 1
+    },
+    {
+      "index": 6,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0,
+          -1,
+          0,
+          1,
+          0
+        ]
+      ],
+      "current_player": -1,
+      "num_random_moves": 3
+    },
+    {
+      "index": 7,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          -1,
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "current_player": -1,
+      "num_random_moves": 3
+    },
+    {
+      "index": 8,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "current_player": -1,
+      "num_random_moves": 1
+    },
+    {
+      "index": 9,
+      "board": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          -1,
+          -1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ]
+      ],
+      "current_player": 1,
+      "num_random_moves": 4
+    }
+  ],
+  "models": [
+    {
+      "tag": "cfnet_initial",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_initial.pt",
+      "generation": 0
+    },
+    {
+      "tag": "cfnet_20260805_223338",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260805_223338.pt",
+      "generation": 1
+    },
+    {
+      "tag": "cfnet_20260805_234151",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260805_234151.pt",
+      "generation": 2
+    },
+    {
+      "tag": "cfnet_20260806_005124",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_005124.pt",
+      "generation": 3
+    },
+    {
+      "tag": "cfnet_20260806_015829",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_015829.pt",
+      "generation": 4
+    },
+    {
+      "tag": "cfnet_20260806_030406",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_030406.pt",
+      "generation": 5
+    },
+    {
+      "tag": "cfnet_20260806_062038",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_062038.pt",
+      "generation": 6
+    },
+    {
+      "tag": "cfnet_20260806_072356",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_072356.pt",
+      "generation": 7
+    },
+    {
+      "tag": "cfnet_20260806_082904",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_082904.pt",
+      "generation": 8
+    },
+    {
+      "tag": "cfnet_20260806_131226",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_131226.pt",
+      "generation": 9
+    },
+    {
+      "tag": "cfnet_20260806_142001",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_142001.pt",
+      "generation": 10
+    },
+    {
+      "tag": "cfnet_20260806_152846",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_152846.pt",
+      "generation": 11
+    },
+    {
+      "tag": "cfnet_20260806_221647",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260806_221647.pt",
+      "generation": 12
+    },
+    {
+      "tag": "cfnet_20260823_173135",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260823_173135.pt",
+      "generation": 13
+    },
+    {
+      "tag": "cfnet_20260823_203004",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260823_203004.pt",
+      "generation": 14
+    },
+    {
+      "tag": "cfnet_20260823_220613",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260823_220613.pt",
+      "generation": 15
+    },
+    {
+      "tag": "cfnet_20260823_234445",
+      "path": "C:/Users/dFischer/private projects/ConnectFour/accepted_models/cfnet_20260823_234445.pt",
+      "generation": 16
+    }
+  ]
+}

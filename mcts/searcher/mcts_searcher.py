@@ -248,11 +248,30 @@ class mcts_searcher:
 
         return chosen_child
 
-    def get_policy_from_child_visits(self, temperature=1.0):
+    def get_root_value(self):
+        """
+        Die von der Suche verfeinerte Bewertung der Wurzel: Mittel der
+        zurueckpropagierten Werte.
+
+        Gleiche Vorzeichenkonvention wie der nn_eval aus search() - aus Sicht des
+        Spielers am Zug (siehe get_ucb, das genau deshalb negiert). Die Differenz
+        der beiden ist der Beitrag der Suche, das Gegenstueck zu nn_policy vs.
+        mcts_policy. Erst nach einer Suche aufrufen.
+        """
+        return self.root.totalReward / self.root.numVisits
+
+    def get_root_visits(self):
+        """
+        Rohe Besuchszahlen je Spalte. Informativer als die normierte Policy: man
+        sieht, wie sich die Iterationen tatsaechlich verteilt haben.
+        """
         visits = np.zeros(7)
         for action, child in self.root.children.items():
             visits[action.target_column] = child.numVisits
+        return visits
 
+    def get_policy_from_child_visits(self, temperature=1.0):
+        visits = self.get_root_visits()
         total_visits = visits.sum()
         if total_visits == 0:
             raise RuntimeError("Die Wurzel hat keine besuchten Kinder - Suche zu kurz?")

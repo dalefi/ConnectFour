@@ -105,6 +105,38 @@ Auf jeder anderen Kombination schlägt das mit
 beim mitgelieferten Satz. Das Erzeugen selbst braucht kein torch, eine minimale
 3.13-Umgebung mit numpy genügt.
 
+### Beispielpartien ansehen
+
+```bash
+python -m src.example_games
+```
+
+Lässt jedes Modell aus `accepted_models/` zehn Partien gegen sich selbst
+spielen und legt sie unter `example_games/<modell>/game_NN.json` ab – je Zug mit
+Stellungsbewertung von Netz und Suche, Policy des Netzes und Policy nach MCTS.
+
+Alle Modelle spielen **dieselben, geseedeten Startstellungen**. Das ist der
+Punkt: eine Selfplay-Partie zeigt Fortschritt nicht, weil der Gegner mitskaliert
+– eine Partie von Generation 3 sieht aus wie eine von Generation 15. Auf
+derselben Startstellung sieht man den Unterschied dagegen direkt.
+
+Dann den Viewer bauen und öffnen:
+
+```bash
+python -m src.example_games_viewer
+```
+
+Das schreibt `example_games/viewer.html`, eine eigenständige Datei mit
+eingebetteten Daten – doppelklicken genügt, kein Server. Pfeiltasten links/rechts
+gehen durch die Züge, hoch/runter durch die Modelle, `0`–`9` wählen die
+Startstellung. Die Tabelle unten zeigt alle Modelle auf der aktuellen
+Startstellung; das ist der einzige über alle Modelle garantiert vergleichbare
+Punkt, ab Zug 2 laufen die Partien auseinander.
+
+Nützliche Optionen: `--num-games`, `--iteration-limit`, `--max-parallel` und
+`--training-temperature` (Zugauswahl wie im Training statt greedy). Der ganze
+Lauf kostet auf der CPU rund eine Stunde, mit CUDA ein Vielfaches weniger.
+
 ## TODO
 
 - nur stellungen mit gewinnzug ausprobieren

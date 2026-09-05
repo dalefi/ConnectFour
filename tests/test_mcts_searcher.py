@@ -470,3 +470,55 @@ async def test_search_reports_the_network_value_of_the_root():
     evaluator = ScriptedEvaluator(value=0.42)
     nn_eval, _, _ = await make_searcher(evaluator, iteration_limit=20).search(ConnectFour())
     assert nn_eval == pytest.approx(0.42)
+
+
+# ---------------------------------------------------------------------------
+# Zugriff auf das Suchergebnis an der Wurzel
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_root_value_is_the_mean_of_the_backpropagated_values():
+    searcher = make_searcher(iteration_limit=50)
+    await searcher.search(ConnectFour())
+
+    assert searcher.get_root_value() == pytest.approx(
+        searcher.root.totalReward / searcher.root.numVisits
+    )
+
+
+@pytest.mark.asyncio
+async def test_root_value_uses_the_same_sign_convention_as_the_network_value():
+    """
+    Beide Bewertungen sind aus Sicht des Spielers am Zug. Hier hat Spieler 1
+    einen sofortigen Gewinnzug (Spalte 3): das Netz sieht ihn nicht (Value 0),
+    die Suche findet ihn und muss deutlich positiv werden - nicht negativ.
+    """
+    state = board_from_rows([
+        ".......",
+        ".......",
+        ".......",
+        ".......",
+        "..o....",
+        "xxx.oo.",
+    ], current_player=1)
+
+    searcher = make_searcher(ScriptedEvaluator(value=0.0), iteration_limit=200)
+    nn_eval, _, _ = await searcher.search(state)
+
+    assert nn_eval == pytest.approx(0.0)
+    assert searcher.get_root_value() > 0.3
+
+
+@pytest.mark.asyncio
+async def test_root_visits_are_consistent_with_the_returned_policy():
+    state = ConnectFour()
+    for _ in range(6):
+        state.make_move(0)
+
+    searcher = make_searcher(iteration_limit=100)
+    _, _, mcts_policy = await searcher.search(state, temperature=1.0)
+    visits = searcher.get_root_visits()
+
+    assert visits[0] == 0.0
+    assert visits.sum() > 0
+    assert visits / visits.sum() == pytest.approx(mcts_policy)

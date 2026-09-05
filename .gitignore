@@ -33,6 +33,12 @@ __pycache__/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Generiert aus example_games/**/game_*.json, ein Befehl:
+#   python -m src.example_games_viewer
+# Die Partien selbst liegen im Repo, die HTML-Datei waere nur eine zweite,
+# mehrere MB grosse Kopie derselben Daten.
+example_games/viewer.html
+
 # IPython history
 profile_default/
 ipython_config.py
