@@ -131,3 +131,68 @@ class DatabaseHandler:
             stats.setdefault(key, 0)
 
         return stats
+
+    def get_training_game_stats(self, model_tag_prefix: str, since) -> dict:
+        """
+        Aggregiert die waehrend der Datengenerierung entstandenen TrainingGames.
+
+        model_tag_prefix: die Worker taggen ihre Partien als "{model_name}_instance_{i}",
+                           hier reicht "{model_name}_instance_" als Praefix.
+        since: nur Partien, die ab diesem Zeitpunkt gespeichert wurden (Beginn der Phase).
+        """
+        query = (
+            self.session
+            .query(TrainingGame)
+            .filter(TrainingGame.model_tag.like(f"{model_tag_prefix}%"))
+            .filter(TrainingGame.timestamp >= since)
+        )
+
+        win_rows = (
+            query
+            .with_entities(TrainingGame.winner, func.count(TrainingGame.winner))
+            .group_by(TrainingGame.winner)
+            .all()
+        )
+        win_counts = {winner: count for winner, count in win_rows}
+
+        num_games, total_moves, avg_moves, min_moves, max_moves = (
+            query
+            .with_entities(
+                func.count(TrainingGame.id),
+                func.sum(TrainingGame.move_count),
+                func.avg(TrainingGame.move_count),
+                func.min(TrainingGame.move_count),
+                func.max(TrainingGame.move_count),
+            )
+            .one()
+        )
+
+        return {
+            "num_games": num_games or 0,
+            "total_moves": total_moves or 0,
+            "avg_game_length": float(avg_moves) if avg_moves is not None else 0.0,
+            "min_game_length": min_moves or 0,
+            "max_game_length": max_moves or 0,
+            "wins_player_1": win_counts.get(1, 0),
+            "wins_player_2": win_counts.get(-1, 0),
+            "draws": win_counts.get(0, 0),
+        }
+
+    def get_selfplay_move_count_stats(self, challenger_model_tag: str) -> dict:
+        """Spiellaengen-Statistik fuer das Gating-Match gegen challenger_model_tag."""
+        avg_moves, min_moves, max_moves = (
+            self.session
+            .query(
+                func.avg(SelfplayGame.move_count),
+                func.min(SelfplayGame.move_count),
+                func.max(SelfplayGame.move_count),
+            )
+            .filter(SelfplayGame.model_2_tag == challenger_model_tag)
+            .one()
+        )
+
+        return {
+            "avg_game_length": float(avg_moves) if avg_moves is not None else 0.0,
+            "min_game_length": min_moves or 0,
+            "max_game_length": max_moves or 0,
+        }

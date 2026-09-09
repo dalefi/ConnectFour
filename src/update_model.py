@@ -12,6 +12,12 @@ from src.generate_training_data import MoveDataset
 from src.utils import timing, get_filename
 
 
+# Aktuell fest verdrahtet statt parametrisiert - hier dokumentiert, damit das
+# Iterations-Log sie mitschreiben kann, ohne die Werte doppelt zu pflegen.
+OPTIMIZER_DESC = "AdamW(lr=0.001, weight_decay=1e-4)"
+SCHEDULER_DESC = "ReduceLROnPlateau(mode=min, factor=0.5, patience=1)"
+
+
 @timing
 def update_model(input_model_path=None,
                  train_data=None,
@@ -51,7 +57,7 @@ def update_model(input_model_path=None,
         pin_memory=(device.type == "cuda")
     )
 
-    history = {"total": [], "value": [], "policy": [], "kl": []}
+    history = {"total": [], "value": [], "policy": [], "kl": [], "lr": []}
 
     for epoch in range(num_epochs):
         running = {"total": 0.0, "value": 0.0, "policy": 0.0, "kl": 0.0}
@@ -93,6 +99,7 @@ def update_model(input_model_path=None,
             history[key].append(running[key] / num_batches)
 
         scheduler.step(history["total"][-1])
+        history["lr"].append(optimizer.param_groups[0]["lr"])
 
         # Der Policy-Anteil enthaelt die Entropie des MCTS-Ziels als festen Sockel.
         # Aussagekraeftig ist die KL - sie kann tatsaechlich gegen 0 gehen.
@@ -141,7 +148,7 @@ def update_model(input_model_path=None,
     plt.savefig(plot_path)
     plt.close()
 
-    return model_path
+    return model_path, history
 
 
 if __name__ == "__main__":
@@ -159,4 +166,4 @@ if __name__ == "__main__":
 
     moves = db.load_moves_for_training(num_moves=buffer_size)
 
-    new_model = update_model(updating_model, MoveDataset(moves), num_epochs=20)
+    new_model_path, history = update_model(updating_model, MoveDataset(moves), num_epochs=20)
